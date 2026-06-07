@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/template/html/v2"
+	"github.com/joho/godotenv"
 )
 
 type Book struct {
@@ -16,6 +18,11 @@ type Book struct {
 var books []Book
 
 func main() {
+	// load .env file
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Error loading .env file")
+	}
+
 	// init engine
 	engine := html.New("./views", ".html")
 
@@ -44,6 +51,9 @@ func main() {
 
 	app.Post("/upload", uploadFile)
 
+	app.Get("config", getConfig)
+	app.Get("config2", getConfig2)
+
 	app.Listen(":8080")
 	fmt.Println("Server is running on http://localhost:8080")
 
@@ -66,4 +76,20 @@ func uploadFile(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
 	}
 	return c.Status(fiber.StatusCreated).SendString("File uploaded successfully")
+}
+
+func getConfig(c fiber.Ctx) error {
+	if value, exists := os.LookupEnv("SECRET"); exists {
+		return c.JSON(fiber.Map{
+			"secret": value,
+		})
+	}
+	return c.Status(fiber.StatusNotFound).SendString("Config not found")
+}
+
+// get SECRET2 from .env file and return as JSON response
+func getConfig2(c fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"secret": os.Getenv("SECRET2"),
+	})
 }
