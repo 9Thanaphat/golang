@@ -16,7 +16,7 @@ info:
   title: Book API
   version: "1.0"
 paths:
-  /book:
+  /books:
     get:
       consumes:
       - application/json

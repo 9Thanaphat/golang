@@ -15,7 +15,7 @@ import (
 // @Produce  json
 // @Security ApiKeyAuth
 // @Success 200 {array} Book
-// @Router /book [get]
+// @Router /books [get]
 func getBooks(c fiber.Ctx) error {
 	return c.JSON(books)
 }
