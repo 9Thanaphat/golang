@@ -4,8 +4,15 @@ import (
 	"fmt"
 	"os"
 
+	_ "fiber-http-server/docs"
+
+	swaggo "github.com/gofiber/contrib/v3/swaggo"
+
+	jwtware "github.com/gofiber/contrib/v3/jwt"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/template/html/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 )
 
@@ -17,6 +24,33 @@ type Book struct {
 
 var books []Book
 
+func isAdmin(c fiber.Ctx) error {
+	// ดึง Token ออกมาจาก Context ด้วยฟังก์ชันเฉพาะของ v3
+	user := jwtware.FromContext(c)
+
+	if user == nil {
+		return c.Status(fiber.StatusUnauthorized).SendString("Token not found in context")
+	}
+
+	claims := user.Claims.(jwt.MapClaims)
+	fmt.Println("ข้อมูลใน Token คือ:", claims)
+
+	if claims["role"] != "admin" {
+		return fiber.ErrUnauthorized
+	}
+
+	return c.Next()
+}
+
+// @title Book API
+// @description This is a sample server for a book API.
+// @version 1.0
+// @host localhost:8080
+// @BasePath /
+// @schemes http
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 func main() {
 	// load .env file
 	if err := godotenv.Load(); err != nil {
@@ -31,6 +65,9 @@ func main() {
 		Views: engine,
 	})
 
+	// Setup Swagger
+	app.Get("/docs/*", swaggo.HandlerDefault)
+
 	// Setup route
 	app.Get("/", renderTemplate)
 
@@ -43,11 +80,25 @@ func main() {
 	books = append(books, Book{ID: 2, Title: "To Kill a Mockingbird", Author: "Harper Lee"})
 	books = append(books, Book{ID: 3, Title: "1984", Author: "George Orwell"})
 
-	app.Get("/books", getBooks)
-	app.Get("/books/:id", getBook)
-	app.Post("/books", createBook)
-	app.Put("/books/:id", updateBook)
-	app.Delete("/books/:id", deleteBook)
+	app.Post("/login", loginHandler)
+
+	// JWT Middleware
+	app.Use(jwtware.New(jwtware.Config{
+		SigningKey: jwtware.SigningKey{
+			Key: []byte(os.Getenv("JWT_SECRET")),
+		},
+		Extractor: extractors.FromAuthHeader("Bearer"),
+	}))
+
+	bookGroup := app.Group("/book")
+
+	bookGroup.Use(isAdmin)
+
+	bookGroup.Get("/books", getBooks)
+	bookGroup.Get("/books/:id", getBook)
+	bookGroup.Post("/books", createBook)
+	bookGroup.Put("/books/:id", updateBook)
+	bookGroup.Delete("/books/:id", deleteBook)
 
 	app.Post("/upload", uploadFile)
 
